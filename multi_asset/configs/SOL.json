@@ -1,0 +1,37 @@
+{
+  "coin": "SOL",
+  "ema_span": 21,
+  "ma_period": 14,
+  "ma_type": "sma",
+  "long_trigger_pct": 0.3,
+  "short_trigger_pct": 1.5,
+  "tp_pct": 0.3,
+  "max_hold_bars": 20,
+  "leverage_long": 20,
+  "leverage_short": 15,
+  "max_leverage": 20,
+  "sz_decimals": 2,
+  "candle_interval": "4h",
+  "base_margin_pct": 0.016,
+  "num_levels": 5,
+  "multiplier": 2.0,
+  "level_gaps": [
+    0.5,
+    1.5,
+    3.0,
+    3.0
+  ],
+  "cum_drops": [
+    0.005,
+    0.02,
+    0.05,
+    0.08
+  ],
+  "state_file": "/Users/assistant/Library/CloudStorage/OneDrive-VesselArchitecture&DesignInc/Documents/VW Family Office/portfolio-high-risk/strategies/Mr Martingale/multi_asset/state/grid_state_SOL.json",
+  "log_file": "/Users/assistant/Library/CloudStorage/OneDrive-VesselArchitecture&DesignInc/Documents/VW Family Office/portfolio-high-risk/strategies/Mr Martingale/multi_asset/logs/grid_bot_SOL.log",
+  "command_dir": "/Users/assistant/Library/CloudStorage/OneDrive-VesselArchitecture&DesignInc/Documents/VW Family Office/portfolio-high-risk/strategies/Mr Martingale/multi_asset/commands/SOL",
+  "paper_trade": true,
+  "poll_seconds": 300,
+  "taker_fee": 0.000432,
+  "maker_fee": 0.000144
+}

@@ -1,0 +1,53 @@
+# Quant Strategy Configuration v3 — Confluence
+# NO SECRETS HERE — API keys go in environment variables
+
+risk:
+  max_position_pct: 0.03        # Max 3% of portfolio per position
+  max_drawdown_pct: 0.15        # Halt trading at 15% drawdown
+  max_correlated_positions: 2   # Max positions in same direction
+  always_use_stops: true
+  stop_loss_pct: 0.025          # 2.5% stop loss
+  take_profit_pct: 0.05         # 5% take profit (R:R = 2:1)
+
+signals:
+  # Funding Rate Extreme
+  funding_percentile_threshold: 99  # P99 of abs funding rate
+  funding_mode: classic             # classic = mean-reversion
+  funding_rolling_window: 2000      # Bars for rolling percentile
+
+  # OI Divergence (volume+price proxy)
+  oi_volume_spike_percentile: 90    # P90 volume = "spike"
+  oi_volume_window: 24              # 24 bars lookback
+  oi_price_move_threshold: 0.005    # 0.5% min price move
+
+  # Liquidation Cascade Proxy
+  liq_wick_ratio_threshold: 0.80    # 80% wick = long wick
+  liq_volatility_window: 24         # 24 bars for vol context
+  liq_volatility_spike_percentile: 95
+  liq_cascade_lookback: 3           # 3 bars for V-shape
+
+  # Order Book Imbalance (forward-only)
+  book_depth_levels: 10             # Top 10 levels each side
+  book_imbalance_threshold: 0.6     # 60% imbalance to fire
+
+  # Confluence Engine
+  min_confluence_score: 25          # Minimum score to trade (0-100)
+  min_active_signals: 2             # Need at least 2 signals agreeing
+  signal_weights:
+    funding_extreme: 0.30
+    oi_divergence: 0.25
+    liquidation_cascade: 0.25
+    book_imbalance: 0.20
+
+execution:
+  exchange: hyperliquid
+  mode: paper                       # paper | live — NO LIVE UNTIL VALIDATED
+  slippage_tolerance: 0.002         # 0.2%
+
+data_collection:
+  orderbook_interval_seconds: 60    # L2 snapshot every 60s
+  orderbook_depth: 20               # 20 levels per side
+  trade_ws_coins: ["BTC", "ETH", "SOL"]
+
+notifications:
+  discord_channel: crypto-bot

@@ -1,0 +1,10 @@
+{
+  "id": "41e3a012-2915-4aca-b90c-2ead416f07ce",
+  "ts": "2026-02-27T00:43:03.852817+00:00",
+  "action": "manual_close",
+  "source": "smoke",
+  "payload": {},
+  "processed_at": "2026-02-27T00:43:05.028141+00:00",
+  "status": "ok",
+  "message": "Manual close processed"
+}
