@@ -1,0 +1,154 @@
+// ══════════════════════════════════════════════════════════════════════════════
+// [82100] Swing 5.0 — Walk-Forward Validated (ETH 1h, Set A)
+// ══════════════════════════════════════════════════════════════════════════════
+// Evolved from KEEM ETH Swing V4.2.1 Enhanced.
+// Validated via:
+//   - fANOVA sensitivity screening (2000 trials x 3 assets)
+//   - Regime-switch validation (physics-scaled thresholds)
+//   - Walk-Forward 5 windows (3yr train + 1yr OOS), 3/3 criteria passed
+//
+// Active components (Set A — BTC toggle consensus):
+//   - Entry: Pivot High breakout
+//   - Filter: HTF Daily SMA
+//   - Exit: Gaussian Channel crossunder
+//   - Exit: Donchian Trailing Stop
+//   - Exit: Max Loss per Trade
+//
+// Removed (disabled by fANOVA consensus):
+//   - Current TF MA filter, Stochastic RSI, Chandelier, ZLAG, Span B
+//
+// Key stats (full-period 2018-2026, ETH 1h):
+//   505 trades, PF 1.85, DD -26.1%, Sharpe 1.95, 7 params, trades/params = 72
+// Walk-Forward OOS (2021-2026):
+//   490 trades, DD -28.2%, Sharpe 1.26, 5/5 windows profitable
+// ══════════════════════════════════════════════════════════════════════════════
+
+//@version=6
+strategy(title="[82100] Swing 5.0", overlay=true,
+     initial_capital=1000, calc_on_every_tick=false,
+     default_qty_type=strategy.percent_of_equity, default_qty_value=100,
+     margin_long=100, margin_short=100,
+     commission_type=strategy.commission.percent, commission_value=0.045,
+     slippage=3, pyramiding=1, use_bar_magnifier=false,
+     fill_orders_on_standard_ohlc=true, max_bars_back=5000)
+
+// ═══════════════════════════════════════════════════════════════
+// 1) BACKTEST RANGE
+// ═══════════════════════════════════════════════════════════════
+Start  = input.time(defval=timestamp("09 Jan 2018 00:00 +0000"), title="Backtest Start Date", group="Backtest Window")
+Finish = input.time(defval=timestamp("31 Dec 2069 23:59 +0000"), title="Backtest End Date",   group="Backtest Window")
+timeCondition = time >= Start and time <= Finish
+
+// ═══════════════════════════════════════════════════════════════
+// 2) ENTRY — PIVOT BREAKOUT
+// ═══════════════════════════════════════════════════════════════
+pvtLb          = input.int(defval=10, title="Pivot Lookback", minval=1, group="Entry — Pivot")
+showPivotPoints = input.bool(defval=false, title="Show Historical Pivot Points?", group="Entry — Pivot")
+
+// ═══════════════════════════════════════════════════════════════
+// 3) FILTER — HTF DAILY SMA
+// ═══════════════════════════════════════════════════════════════
+tfSet     = input.timeframe(defval="D", title="HTF Time Frame", group="Filter — HTF MA")
+htfMaLength = input.int(defval=14, title="HTF SMA Period", minval=1, group="Filter — HTF MA")
+
+// ═══════════════════════════════════════════════════════════════
+// 4) EXIT — MAX LOSS PER TRADE
+// ═══════════════════════════════════════════════════════════════
+maxLossPerc = input.float(defval=11.5, title="Max Loss per Trade (%)", minval=0.1, step=0.5, group="Exit — Max Loss")
+
+// ═══════════════════════════════════════════════════════════════
+// 5) EXIT — GAUSSIAN CHANNEL
+// ═══════════════════════════════════════════════════════════════
+gaussSrc  = input.source(defval=ohlc4, title="Source", group="Exit — Gaussian Channel")
+gaussN    = input.int(defval=3, title="Poles", minval=1, maxval=9, group="Exit — Gaussian Channel")
+gaussPer  = input.int(defval=144, title="Sampling Period", minval=2, group="Exit — Gaussian Channel")
+gaussMult = input.float(defval=1.55, title="Filtered TR Multiplier", minval=0, step=0.05, group="Exit — Gaussian Channel")
+
+// ═══════════════════════════════════════════════════════════════
+// 6) EXIT — DONCHIAN TRAILING STOP
+// ═══════════════════════════════════════════════════════════════
+donLen        = input.int(defval=140, title="Donchian Length", minval=1, group="Exit — Donchian Trailing")
+donSourceMode = input.string(defval="Close", title="Donchian Source", options=["Low", "Close"], group="Exit — Donchian Trailing")
+
+// ═══════════════════════════════════════════════════════════════
+// CALCULATIONS
+// ═══════════════════════════════════════════════════════════════
+
+// --- HTF MA (lookahead_off on historical = no future leak) ---
+htfMa = request.security(syminfo.tickerid, tfSet, ta.sma(close, htfMaLength), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+
+// --- SAFE Pivot High/Low (No Lookahead) ---
+ph = ta.pivothigh(high, pvtLb, pvtLb)
+pl = ta.pivotlow(low, pvtLb, pvtLb)
+var float safeHighLevel = na
+var float safeLowLevel  = na
+if not na(ph)
+    safeHighLevel := high[pvtLb]
+if not na(pl)
+    safeLowLevel := low[pvtLb]
+plotshape(showPivotPoints and not na(ph), location=location.abovebar, color=color.red,   style=shape.triangledown, size=size.small)
+plotshape(showPivotPoints and not na(pl), location=location.belowbar, color=color.green, style=shape.triangleup,   size=size.small)
+
+// --- Gaussian Channel (no reduced lag) ---
+filt   = ta.sma(gaussSrc, gaussPer)
+filttr = ta.sma(ta.tr(true), gaussPer)
+hband  = filt + filttr * gaussMult
+lband  = filt - filttr * gaussMult
+
+// --- Gaussian crossunder (must be called every bar for consistency) ---
+gaussXU = ta.crossunder(close, hband)
+
+// --- Donchian Trailing ---
+float donBase = donSourceMode == "Close" ? ta.lowest(close, donLen) : ta.lowest(low, donLen)
+var float donStop = na
+
+// ═══════════════════════════════════════════════════════════════
+// ENTRY CONDITIONS
+// ═══════════════════════════════════════════════════════════════
+buyConditions = (safeHighLevel > htfMa) and
+     timeCondition and not na(safeHighLevel)
+
+if buyConditions
+    strategy.entry("Long", strategy.long, stop=safeHighLevel)
+
+// ═══════════════════════════════════════════════════════════════
+// EXIT LOGIC
+// ═══════════════════════════════════════════════════════════════
+if strategy.position_size > 0
+    // --- Max Loss ---
+    float maxLossPrice = strategy.position_avg_price * (1 - maxLossPerc / 100)
+
+    // --- Gaussian Exit ---
+    if gaussXU and timeCondition
+        strategy.close("Long", comment="Gaussian Exit")
+
+    // --- Donchian Trailing Stop ---
+    if strategy.position_size[1] <= 0
+        donStop := na
+    float candidate = donBase
+    donStop := na(donStop) ? candidate : math.max(donStop, candidate)
+
+    // --- Unified stop: highest of DonTrail and MaxLoss ---
+    // Using a single strategy.exit() avoids TV's OCA conflict where
+    // two exits with different IDs but same from_entry interfere.
+    float activeStop = maxLossPrice
+    string stopComment = "Max Loss"
+    if not na(donStop) and donStop > maxLossPrice
+        activeStop := donStop
+        stopComment := "Donchian Trail"
+    strategy.exit("StopExit", "Long", stop=activeStop, comment=stopComment)
+else
+    donStop := na
+
+// ═══════════════════════════════════════════════════════════════
+// PLOTS
+// ═══════════════════════════════════════════════════════════════
+plot(htfMa, title="HTF SMA", color=color.new(color.blue, 30), linewidth=2)
+plot(hband, title="Gaussian Upper", color=color.new(color.orange, 40))
+plot(lband, title="Gaussian Lower", color=color.new(color.orange, 40))
+plot(filt,  title="Gaussian Mid",   color=color.new(color.gray, 50))
+plot(strategy.position_size > 0 ? donStop : na, title="Don Trail Stop", color=color.red, style=plot.style_stepline, linewidth=2)
+
+// --- Diagnostic (hidden) ---
+plot(safeHighLevel, title="A_safeHighLevel", display=display.none)
+plot(safeLowLevel,  title="A_safeLowLevel",  display=display.none)

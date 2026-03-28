@@ -1,0 +1,160 @@
+// ==============================================================================
+// [82100] Swing 6.0 — Per-Asset Optimized (LINK 1h)
+// ==============================================================================
+// Per-asset toggle set from fANOVA. Full-period optimized.
+//
+// Active components (LINK per-asset set):
+//   - Entry: Pivot High breakout
+//   - Filter: Stochastic RSI (K >= 80 or K <= 20)
+//   - Exit: Donchian Trailing Stop
+//   - Exit: Max Loss per Trade
+//   - Exit: Chandelier Stop
+//   - Exit: Span B Stop Loss (with re-entry gate)
+//
+// Full-period stats:
+//   273 trades, PF 1.20, DD -57.9%, Sharpe 1.14
+// Walk-Forward: FAIL 0/3
+// ==============================================================================
+
+//@version=6
+strategy(title="[82100] Swing 6.0 LINK", overlay=true,
+     initial_capital=1000, calc_on_every_tick=false,
+     default_qty_type=strategy.percent_of_equity, default_qty_value=100,
+     margin_long=100, margin_short=100,
+     commission_type=strategy.commission.percent, commission_value=0.045,
+     slippage=3, pyramiding=1, use_bar_magnifier=false,
+     fill_orders_on_standard_ohlc=true, max_bars_back=5000)
+
+// ===============================================================
+// 1) BACKTEST RANGE
+// ===============================================================
+Start  = input.time(defval=timestamp("09 Jan 2018 00:00 +0000"), title="Backtest Start Date", group="Backtest Window")
+Finish = input.time(defval=timestamp("31 Dec 2069 23:59 +0000"), title="Backtest End Date",   group="Backtest Window")
+timeCondition = time >= Start and time <= Finish
+
+// ===============================================================
+// 2) ENTRY — PIVOT BREAKOUT
+// ===============================================================
+pvtLb          = input.int(defval=5, title="Pivot Lookback", minval=1, group="Entry — Pivot")
+showPivotPoints = input.bool(defval=false, title="Show Historical Pivot Points?", group="Entry — Pivot")
+
+// ===============================================================
+// 3) FILTER — STOCHASTIC RSI
+// ===============================================================
+stochSmoothK  = input.int(defval=17,  title="Smooth K",     minval=1, group="Filter — Stochastic RSI")
+stochSmoothD  = input.int(defval=11, title="Smooth D",     minval=1, group="Filter — Stochastic RSI")
+stochRsiLen   = input.int(defval=8,  title="RSI Length",   minval=1, group="Filter — Stochastic RSI")
+stochLen      = input.int(defval=42, title="Stoch Length", minval=1, group="Filter — Stochastic RSI")
+
+// ===============================================================
+// 4) EXIT — MAX LOSS PER TRADE
+// ===============================================================
+maxLossPerc = input.float(defval=20.0, title="Max Loss per Trade (%)", minval=0.1, step=0.5, group="Exit — Max Loss")
+
+// ===============================================================
+// 5) EXIT — DONCHIAN TRAILING STOP
+// ===============================================================
+donLen        = input.int(defval=248, title="Donchian Length", minval=1, group="Exit — Donchian Trailing")
+donSourceMode = input.string(defval="Close", title="Donchian Source", options=["Low", "Close"], group="Exit — Donchian Trailing")
+
+// ===============================================================
+// 6) EXIT — SPAN B STOP
+// ===============================================================
+spanBLen = input.int(defval=462, title="Span B Length", minval=1, group="Exit — Span B Stop")
+
+// ===============================================================
+// 7) EXIT — CHANDELIER STOP
+// ===============================================================
+chandLen  = input.int(defval=71, title="Chandelier Length", minval=1, group="Exit — Chandelier")
+chandMult = input.float(defval=3.9, title="Chandelier Multiplier", minval=0.1, step=0.1, group="Exit — Chandelier")
+
+// ===============================================================
+// CALCULATIONS
+// ===============================================================
+
+// --- SAFE Pivot High/Low (No Lookahead) ---
+ph = ta.pivothigh(high, pvtLb, pvtLb)
+pl = ta.pivotlow(low, pvtLb, pvtLb)
+var float safeHighLevel = na
+var float safeLowLevel  = na
+if not na(ph)
+    safeHighLevel := high[pvtLb]
+if not na(pl)
+    safeLowLevel := low[pvtLb]
+plotshape(showPivotPoints and not na(ph), location=location.abovebar, color=color.red,   style=shape.triangledown, size=size.small)
+plotshape(showPivotPoints and not na(pl), location=location.belowbar, color=color.green, style=shape.triangleup,   size=size.small)
+
+// --- Stochastic RSI ---
+hlcc4 = (high + low + close + close) / 4.0
+rsiVal = ta.rsi(hlcc4, stochRsiLen)
+stochRaw = ta.stoch(rsiVal, rsiVal, rsiVal, stochLen)
+kVal = ta.sma(stochRaw, stochSmoothK)
+dVal = ta.sma(kVal, stochSmoothD)
+stochOk = kVal >= 80 or kVal <= 20
+
+// --- Donchian Trailing ---
+float donBase = donSourceMode == "Close" ? ta.lowest(close, donLen) : ta.lowest(low, donLen)
+var float donStop = na
+
+// --- Span B Stop ---
+spanBVal = (ta.highest(high, spanBLen) + ta.lowest(low, spanBLen)) / 2.0
+spanBCrossUnder = ta.crossunder(close, spanBVal)
+spanBCrossOver  = ta.crossover(close, spanBVal)
+var bool stopOutActive = false
+if stopOutActive and spanBCrossOver
+    stopOutActive := false
+
+// --- Chandelier Stop ---
+chandATR = ta.atr(chandLen)
+chandStop = ta.highest(high, chandLen) - chandMult * chandATR
+
+// ===============================================================
+// ENTRY CONDITIONS
+// ===============================================================
+buyConditions = stochOk and not stopOutActive and timeCondition and not na(safeHighLevel)
+
+if buyConditions
+    strategy.entry("Long", strategy.long, stop=safeHighLevel)
+
+// ===============================================================
+// EXIT LOGIC
+// ===============================================================
+if strategy.position_size > 0
+    // --- Span B Stop ---
+    if spanBCrossUnder and timeCondition
+        strategy.close("Long", comment="Span B Stop")
+        stopOutActive := true
+
+    // --- Chandelier Stop ---
+    if close < chandStop and timeCondition
+        strategy.close("Long", comment="Chandelier Stop")
+
+    // --- Max Loss ---
+    float maxLossPrice = strategy.position_avg_price * (1 - maxLossPerc / 100)
+
+    // --- Donchian Trailing Stop ---
+    if strategy.position_size[1] <= 0
+        donStop := na
+    float candidate = donBase
+    donStop := na(donStop) ? candidate : math.max(donStop, candidate)
+
+    // --- Unified stop: highest of DonTrail and MaxLoss ---
+    float activeStop = maxLossPrice
+    string stopComment = "Max Loss"
+    if not na(donStop) and donStop > maxLossPrice
+        activeStop := donStop
+        stopComment := "Donchian Trail"
+    strategy.exit("StopExit", "Long", stop=activeStop, comment=stopComment)
+else
+    donStop := na
+
+// ===============================================================
+// PLOTS
+// ===============================================================
+plot(strategy.position_size > 0 ? donStop : na, title="Don Trail Stop", color=color.red, style=plot.style_stepline, linewidth=2)
+plot(spanBVal, title="Span B", color=color.new(color.purple, 40), linewidth=1)
+
+// --- Diagnostic (hidden) ---
+plot(safeHighLevel, title="A_safeHighLevel", display=display.none)
+plot(safeLowLevel,  title="A_safeLowLevel",  display=display.none)
+plot(kVal, title="StochRSI K", display=display.none)

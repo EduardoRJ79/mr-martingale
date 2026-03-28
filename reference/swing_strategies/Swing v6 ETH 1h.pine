@@ -1,0 +1,171 @@
+// ══════════════════════════════════════════════════════════════════════════════
+// [82100] Swing 6.0 — Per-Asset Optimized (ETH 1h)
+// ══════════════════════════════════════════════════════════════════════════════
+// Evolved from Swing 5.0. Per-asset toggle set from post-bugfix fANOVA (2026-03-17).
+// Full-period optimized (2000 trials, 2018-2026).
+//
+// Active components (ETH per-asset set):
+//   - Entry: Pivot High breakout
+//   - Filter: HTF Daily EMA
+//   - Filter: Stochastic RSI (K >= 80 or K <= 20)
+//   - Exit: Gaussian Channel crossunder (source: Close)
+//   - Exit: Donchian Trailing Stop
+//   - Exit: Span B Stop Loss (with re-entry gate)
+//
+// Disabled by fANOVA:
+//   - Current TF MA filter, Max Loss, Chandelier, ZLAG
+//
+// Full-period stats (2018-2026, ETH 1h):
+//   329 trades, PF 2.10, DD -21.6%, Sharpe 1.71, Score 5.92
+// Walk-Forward OOS (2021-2026): PASS 3/3
+//   294 trades, DD -38.1%, Sharpe 1.37, 5/5 windows profitable
+// ══════════════════════════════════════════════════════════════════════════════
+
+//@version=6
+strategy(title="[82100] Swing 6.0 ETH", overlay=true,
+     initial_capital=1000, calc_on_every_tick=false,
+     default_qty_type=strategy.percent_of_equity, default_qty_value=100,
+     margin_long=100, margin_short=100,
+     commission_type=strategy.commission.percent, commission_value=0.045,
+     slippage=3, pyramiding=1, use_bar_magnifier=false,
+     fill_orders_on_standard_ohlc=true, max_bars_back=5000)
+
+// ═══════════════════════════════════════════════════════════════
+// 1) BACKTEST RANGE
+// ═══════════════════════════════════════════════════════════════
+Start  = input.time(defval=timestamp("09 Jan 2018 00:00 +0000"), title="Backtest Start Date", group="Backtest Window")
+Finish = input.time(defval=timestamp("31 Dec 2069 23:59 +0000"), title="Backtest End Date",   group="Backtest Window")
+timeCondition = time >= Start and time <= Finish
+
+// ═══════════════════════════════════════════════════════════════
+// 2) ENTRY — PIVOT BREAKOUT
+// ═══════════════════════════════════════════════════════════════
+pvtLb          = input.int(defval=9, title="Pivot Lookback", minval=1, group="Entry — Pivot")
+showPivotPoints = input.bool(defval=false, title="Show Historical Pivot Points?", group="Entry — Pivot")
+
+// ═══════════════════════════════════════════════════════════════
+// 3) FILTER — HTF DAILY EMA
+// ═══════════════════════════════════════════════════════════════
+tfSet     = input.timeframe(defval="D", title="HTF Time Frame", group="Filter — HTF MA")
+htfMaLength = input.int(defval=31, title="HTF EMA Period", minval=1, group="Filter — HTF MA")
+
+// ═══════════════════════════════════════════════════════════════
+// 4) FILTER — STOCHASTIC RSI
+// ═══════════════════════════════════════════════════════════════
+stochSmoothK  = input.int(defval=3,  title="Smooth K",     minval=1, group="Filter — Stochastic RSI")
+stochSmoothD  = input.int(defval=19, title="Smooth D",     minval=1, group="Filter — Stochastic RSI")
+stochRsiLen   = input.int(defval=4,  title="RSI Length",   minval=1, group="Filter — Stochastic RSI")
+stochLen      = input.int(defval=18, title="Stoch Length", minval=1, group="Filter — Stochastic RSI")
+
+// ═══════════════════════════════════════════════════════════════
+// 5) EXIT — GAUSSIAN CHANNEL
+// ═══════════════════════════════════════════════════════════════
+gaussPer  = input.int(defval=266, title="Sampling Period", minval=2, group="Exit — Gaussian Channel")
+gaussMult = input.float(defval=1.90, title="Filtered TR Multiplier", minval=0, step=0.05, group="Exit — Gaussian Channel")
+
+// ═══════════════════════════════════════════════════════════════
+// 6) EXIT — DONCHIAN TRAILING STOP
+// ═══════════════════════════════════════════════════════════════
+donLen        = input.int(defval=230, title="Donchian Length", minval=1, group="Exit — Donchian Trailing")
+donSourceMode = input.string(defval="Close", title="Donchian Source", options=["Low", "Close"], group="Exit — Donchian Trailing")
+
+// ═══════════════════════════════════════════════════════════════
+// 7) EXIT — SPAN B STOP
+// ═══════════════════════════════════════════════════════════════
+spanBLen = input.int(defval=350, title="Span B Length", minval=1, group="Exit — Span B Stop")
+
+// ═══════════════════════════════════════════════════════════════
+// CALCULATIONS
+// ═══════════════════════════════════════════════════════════════
+
+// --- HTF EMA (lookahead_off on historical = no future leak) ---
+htfMa = request.security(syminfo.tickerid, tfSet, ta.ema(close, htfMaLength), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+
+// --- SAFE Pivot High/Low (No Lookahead) ---
+ph = ta.pivothigh(high, pvtLb, pvtLb)
+pl = ta.pivotlow(low, pvtLb, pvtLb)
+var float safeHighLevel = na
+var float safeLowLevel  = na
+if not na(ph)
+    safeHighLevel := high[pvtLb]
+if not na(pl)
+    safeLowLevel := low[pvtLb]
+plotshape(showPivotPoints and not na(ph), location=location.abovebar, color=color.red,   style=shape.triangledown, size=size.small)
+plotshape(showPivotPoints and not na(pl), location=location.belowbar, color=color.green, style=shape.triangleup,   size=size.small)
+
+// --- Stochastic RSI ---
+// PineScript: hlcc4 = (high + low + close + close) / 4
+hlcc4 = (high + low + close + close) / 4.0
+rsiVal = ta.rsi(hlcc4, stochRsiLen)
+stochRaw = ta.stoch(rsiVal, rsiVal, rsiVal, stochLen)
+kVal = ta.sma(stochRaw, stochSmoothK)
+dVal = ta.sma(kVal, stochSmoothD)
+stochOk = kVal >= 80 or kVal <= 20
+
+// --- Gaussian Channel (source: Close, no reduced lag, 3 poles) ---
+filt   = ta.sma(close, gaussPer)
+filttr = ta.sma(ta.tr(true), gaussPer)
+hband  = filt + filttr * gaussMult
+lband  = filt - filttr * gaussMult
+gaussXU = ta.crossunder(close, hband)
+
+// --- Donchian Trailing ---
+float donBase = donSourceMode == "Close" ? ta.lowest(close, donLen) : ta.lowest(low, donLen)
+var float donStop = na
+
+// --- Span B Stop (midline of highest high + lowest low) ---
+spanBVal = (ta.highest(high, spanBLen) + ta.lowest(low, spanBLen)) / 2.0
+spanBCrossUnder = ta.crossunder(close, spanBVal)
+spanBCrossOver  = ta.crossover(close, spanBVal)
+var bool stopOutActive = false
+
+if stopOutActive and spanBCrossOver
+    stopOutActive := false
+
+// ═══════════════════════════════════════════════════════════════
+// ENTRY CONDITIONS
+// ═══════════════════════════════════════════════════════════════
+buyConditions = (safeHighLevel > htfMa) and stochOk and
+     timeCondition and not na(safeHighLevel) and not stopOutActive
+
+if buyConditions
+    strategy.entry("Long", strategy.long, stop=safeHighLevel)
+
+// ═══════════════════════════════════════════════════════════════
+// EXIT LOGIC
+// ═══════════════════════════════════════════════════════════════
+if strategy.position_size > 0
+    // --- Gaussian Exit ---
+    if gaussXU and timeCondition
+        strategy.close("Long", comment="Gaussian Exit")
+
+    // --- Span B Stop ---
+    if spanBCrossUnder and timeCondition
+        strategy.close("Long", comment="Span B Stop")
+        stopOutActive := true
+
+    // --- Donchian Trailing Stop ---
+    if strategy.position_size[1] <= 0
+        donStop := na
+    float candidate = donBase
+    donStop := na(donStop) ? candidate : math.max(donStop, candidate)
+
+    if not na(donStop)
+        strategy.exit("DonTrail", "Long", stop=donStop, comment="Donchian Trail")
+else
+    donStop := na
+
+// ═══════════════════════════════════════════════════════════════
+// PLOTS
+// ═══════════════════════════════════════════════════════════════
+plot(htfMa, title="HTF EMA", color=color.new(color.blue, 30), linewidth=2)
+plot(hband, title="Gaussian Upper", color=color.new(color.orange, 40))
+plot(lband, title="Gaussian Lower", color=color.new(color.orange, 40))
+plot(filt,  title="Gaussian Mid",   color=color.new(color.gray, 50))
+plot(strategy.position_size > 0 ? donStop : na, title="Don Trail Stop", color=color.red, style=plot.style_stepline, linewidth=2)
+plot(spanBVal, title="Span B", color=color.new(color.purple, 40), linewidth=1)
+
+// --- Diagnostic (hidden) ---
+plot(safeHighLevel, title="A_safeHighLevel", display=display.none)
+plot(safeLowLevel,  title="A_safeLowLevel",  display=display.none)
+plot(kVal, title="StochRSI K", display=display.none)

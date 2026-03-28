@@ -1,0 +1,159 @@
+// ══════════════════════════════════════════════════════════════════════════════
+// [82100] Swing 6.0 — Per-Asset Optimized (SOL 1h)
+// ══════════════════════════════════════════════════════════════════════════════
+// Evolved from Swing 5.0. Per-asset toggle set from post-bugfix fANOVA (2026-03-17).
+// Full-period optimized (2000 trials, 2020-2026).
+//
+// Active components (SOL per-asset set):
+//   - Entry: Pivot High breakout
+//   - Filter: HTF Daily SMA
+//   - Filter: Current TF EMA (102)
+//   - Filter: Stochastic RSI (K >= 80 or K <= 20)
+//   - Exit: Gaussian Channel crossunder (source: High, fixed by fANOVA)
+//   - Exit: Donchian Trailing Stop (source: Close, fixed by fANOVA)
+//
+// Disabled by fANOVA:
+//   - Max Loss, Chandelier, ZLAG, Span B
+//
+// Full-period stats (2020-2026, SOL 1h):
+//   59 trades, PF 4.64, DD -20.1%, Sharpe 1.91, Score 11.93
+// Walk-Forward OOS (2023-2026): PARTIAL 2/3
+//   105 trades, DD -48.0%, Sharpe 1.07
+//   W3 (2025 choppy) weakness, low trade count
+// ══════════════════════════════════════════════════════════════════════════════
+
+//@version=6
+strategy(title="[82100] Swing 6.0 SOL", overlay=true,
+     initial_capital=1000, calc_on_every_tick=false,
+     default_qty_type=strategy.percent_of_equity, default_qty_value=100,
+     margin_long=100, margin_short=100,
+     commission_type=strategy.commission.percent, commission_value=0.045,
+     slippage=3, pyramiding=1, use_bar_magnifier=false,
+     fill_orders_on_standard_ohlc=true, max_bars_back=5000)
+
+// ═══════════════════════════════════════════════════════════════
+// 1) BACKTEST RANGE
+// ═══════════════════════════════════════════════════════════════
+Start  = input.time(defval=timestamp("11 Aug 2020 00:00 +0000"), title="Backtest Start Date", group="Backtest Window")
+Finish = input.time(defval=timestamp("31 Dec 2069 23:59 +0000"), title="Backtest End Date",   group="Backtest Window")
+timeCondition = time >= Start and time <= Finish
+
+// ═══════════════════════════════════════════════════════════════
+// 2) ENTRY — PIVOT BREAKOUT
+// ═══════════════════════════════════════════════════════════════
+pvtLb          = input.int(defval=6, title="Pivot Lookback", minval=1, group="Entry — Pivot")
+showPivotPoints = input.bool(defval=false, title="Show Historical Pivot Points?", group="Entry — Pivot")
+
+// ═══════════════════════════════════════════════════════════════
+// 3) FILTER — HTF DAILY SMA
+// ═══════════════════════════════════════════════════════════════
+tfSet     = input.timeframe(defval="D", title="HTF Time Frame", group="Filter — HTF MA")
+htfMaLength = input.int(defval=49, title="HTF SMA Period", minval=1, group="Filter — HTF MA")
+
+// ═══════════════════════════════════════════════════════════════
+// 4) FILTER — CURRENT TF EMA
+// ═══════════════════════════════════════════════════════════════
+maLength = input.int(defval=102, title="EMA Period", minval=1, group="Filter — Current TF MA")
+
+// ═══════════════════════════════════════════════════════════════
+// 5) FILTER — STOCHASTIC RSI
+// ═══════════════════════════════════════════════════════════════
+stochSmoothK  = input.int(defval=20, title="Smooth K",     minval=1, group="Filter — Stochastic RSI")
+stochSmoothD  = input.int(defval=18, title="Smooth D",     minval=1, group="Filter — Stochastic RSI")
+stochRsiLen   = input.int(defval=11, title="RSI Length",   minval=1, group="Filter — Stochastic RSI")
+stochLen      = input.int(defval=7,  title="Stoch Length", minval=1, group="Filter — Stochastic RSI")
+
+// ═══════════════════════════════════════════════════════════════
+// 6) EXIT — GAUSSIAN CHANNEL (source: High, fixed by fANOVA)
+// ═══════════════════════════════════════════════════════════════
+gaussPer  = input.int(defval=300, title="Sampling Period", minval=2, group="Exit — Gaussian Channel")
+gaussMult = input.float(defval=0.80, title="Filtered TR Multiplier", minval=0, step=0.05, group="Exit — Gaussian Channel")
+
+// ═══════════════════════════════════════════════════════════════
+// 7) EXIT — DONCHIAN TRAILING STOP (source: Close, fixed by fANOVA)
+// ═══════════════════════════════════════════════════════════════
+donLen = input.int(defval=168, title="Donchian Length", minval=1, group="Exit — Donchian Trailing")
+
+// ═══════════════════════════════════════════════════════════════
+// CALCULATIONS
+// ═══════════════════════════════════════════════════════════════
+
+// --- HTF SMA (lookahead_off on historical = no future leak) ---
+htfMa = request.security(syminfo.tickerid, tfSet, ta.sma(close, htfMaLength), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+
+// --- Current TF EMA ---
+maFilter = ta.ema(close, maLength)
+
+// --- SAFE Pivot High/Low (No Lookahead) ---
+ph = ta.pivothigh(high, pvtLb, pvtLb)
+pl = ta.pivotlow(low, pvtLb, pvtLb)
+var float safeHighLevel = na
+var float safeLowLevel  = na
+if not na(ph)
+    safeHighLevel := high[pvtLb]
+if not na(pl)
+    safeLowLevel := low[pvtLb]
+plotshape(showPivotPoints and not na(ph), location=location.abovebar, color=color.red,   style=shape.triangledown, size=size.small)
+plotshape(showPivotPoints and not na(pl), location=location.belowbar, color=color.green, style=shape.triangleup,   size=size.small)
+
+// --- Stochastic RSI ---
+hlcc4 = (high + low + close + close) / 4.0
+rsiVal = ta.rsi(hlcc4, stochRsiLen)
+stochRaw = ta.stoch(rsiVal, rsiVal, rsiVal, stochLen)
+kVal = ta.sma(stochRaw, stochSmoothK)
+dVal = ta.sma(kVal, stochSmoothD)
+stochOk = kVal >= 80 or kVal <= 20
+
+// --- Gaussian Channel (source: High, no reduced lag, 3 poles) ---
+filt   = ta.sma(high, gaussPer)
+filttr = ta.sma(ta.tr(true), gaussPer)
+hband  = filt + filttr * gaussMult
+lband  = filt - filttr * gaussMult
+gaussXU = ta.crossunder(close, hband)
+
+// --- Donchian Trailing (source: Close) ---
+float donBase = ta.lowest(close, donLen)
+var float donStop = na
+
+// ═══════════════════════════════════════════════════════════════
+// ENTRY CONDITIONS
+// ═══════════════════════════════════════════════════════════════
+buyConditions = (safeHighLevel > htfMa) and (safeHighLevel > maFilter) and stochOk and
+     timeCondition and not na(safeHighLevel)
+
+if buyConditions
+    strategy.entry("Long", strategy.long, stop=safeHighLevel)
+
+// ═══════════════════════════════════════════════════════════════
+// EXIT LOGIC
+// ═══════════════════════════════════════════════════════════════
+if strategy.position_size > 0
+    // --- Gaussian Exit ---
+    if gaussXU and timeCondition
+        strategy.close("Long", comment="Gaussian Exit")
+
+    // --- Donchian Trailing Stop ---
+    if strategy.position_size[1] <= 0
+        donStop := na
+    float candidate = donBase
+    donStop := na(donStop) ? candidate : math.max(donStop, candidate)
+
+    if not na(donStop)
+        strategy.exit("DonTrail", "Long", stop=donStop, comment="Donchian Trail")
+else
+    donStop := na
+
+// ═══════════════════════════════════════════════════════════════
+// PLOTS
+// ═══════════════════════════════════════════════════════════════
+plot(htfMa, title="HTF SMA", color=color.new(color.blue, 30), linewidth=2)
+plot(maFilter, title="Current TF EMA", color=color.new(color.teal, 40), linewidth=1)
+plot(hband, title="Gaussian Upper", color=color.new(color.orange, 40))
+plot(lband, title="Gaussian Lower", color=color.new(color.orange, 40))
+plot(filt,  title="Gaussian Mid",   color=color.new(color.gray, 50))
+plot(strategy.position_size > 0 ? donStop : na, title="Don Trail Stop", color=color.red, style=plot.style_stepline, linewidth=2)
+
+// --- Diagnostic (hidden) ---
+plot(safeHighLevel, title="A_safeHighLevel", display=display.none)
+plot(safeLowLevel,  title="A_safeLowLevel",  display=display.none)
+plot(kVal, title="StochRSI K", display=display.none)
