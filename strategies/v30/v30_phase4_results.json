@@ -1,0 +1,861 @@
+[
+  {
+    "label": "p4_v28_OR_ema20t02",
+    "cagr": 24.8,
+    "cmr": 1.76,
+    "max_dd": 100.3,
+    "trades": 1619,
+    "tp": 1616,
+    "to": 0,
+    "liq": 3,
+    "longs": 1587,
+    "shorts": 29,
+    "fav": 1243,
+    "unfav": 373,
+    "filtered": 959,
+    "rescued": 499,
+    "final_eq": 5158.0,
+    "total_return": 5.2,
+    "levels": {
+      "1": 831,
+      "2": 576,
+      "3": 190,
+      "4": 19
+    },
+    "liq_events": [
+      "2019-09-24 19:42:00 long L4 eq=$1,816",
+      "2019-11-22 10:38:00 long L4 eq=$1,161",
+      "2024-07-05 04:19:00 long L4 eq=$66,313"
+    ]
+  },
+  {
+    "label": "p4_v28_OR_ema20t02_dd10",
+    "cagr": 120.8,
+    "cmr": 6.65,
+    "max_dd": 79.6,
+    "trades": 1515,
+    "tp": 1515,
+    "to": 0,
+    "liq": 0,
+    "longs": 1486,
+    "shorts": 29,
+    "fav": 1163,
+    "unfav": 352,
+    "filtered": 1171,
+    "rescued": 622,
+    "final_eq": 353042.0,
+    "total_return": 353.0,
+    "levels": {
+      "1": 779,
+      "2": 534,
+      "3": 185,
+      "4": 17
+    },
+    "liq_events": []
+  },
+  {
+    "label": "p4_v28_OR_pivot10",
+    "cagr": 171.2,
+    "cmr": 8.46,
+    "max_dd": 90.8,
+    "trades": 2639,
+    "tp": 2638,
+    "to": 0,
+    "liq": 1,
+    "longs": 2630,
+    "shorts": 8,
+    "fav": 2064,
+    "unfav": 574,
+    "filtered": 1271,
+    "rescued": 620,
+    "final_eq": 1618886.0,
+    "total_return": 1618.9,
+    "levels": {
+      "1": 1439,
+      "2": 934,
+      "3": 247,
+      "4": 18
+    },
+    "liq_events": [
+      "2020-09-03 23:27:00 long L4 eq=$12,735"
+    ]
+  },
+  {
+    "label": "p4_v28_OR_pivot7",
+    "cagr": 155.7,
+    "cmr": 7.93,
+    "max_dd": 90.8,
+    "trades": 2522,
+    "tp": 2521,
+    "to": 0,
+    "liq": 1,
+    "longs": 2512,
+    "shorts": 9,
+    "fav": 1942,
+    "unfav": 579,
+    "filtered": 1281,
+    "rescued": 609,
+    "final_eq": 1045246.0,
+    "total_return": 1045.2,
+    "levels": {
+      "1": 1383,
+      "2": 888,
+      "3": 231,
+      "4": 19
+    },
+    "liq_events": [
+      "2020-09-03 23:27:00 long L4 eq=$11,317"
+    ]
+  },
+  {
+    "label": "p4_v28_OR_boll20",
+    "cagr": 121.3,
+    "cmr": 6.67,
+    "max_dd": 97.2,
+    "trades": 1523,
+    "tp": 1522,
+    "to": 0,
+    "liq": 1,
+    "longs": 1493,
+    "shorts": 29,
+    "fav": 1165,
+    "unfav": 357,
+    "filtered": 1142,
+    "rescued": 602,
+    "final_eq": 358844.0,
+    "total_return": 358.8,
+    "levels": {
+      "1": 787,
+      "2": 535,
+      "3": 183,
+      "4": 17
+    },
+    "liq_events": [
+      "2018-11-20 06:48:00 long L4 eq=$997"
+    ]
+  },
+  {
+    "label": "p4_ema20t02_OR_pivot10",
+    "cagr": 124.0,
+    "cmr": 6.85,
+    "max_dd": 90.8,
+    "trades": 2107,
+    "tp": 2106,
+    "to": 0,
+    "liq": 1,
+    "longs": 2098,
+    "shorts": 8,
+    "fav": 1764,
+    "unfav": 342,
+    "filtered": 601,
+    "rescued": 430,
+    "final_eq": 392458.0,
+    "total_return": 392.5,
+    "levels": {
+      "1": 1147,
+      "2": 758,
+      "3": 194,
+      "4": 7
+    },
+    "liq_events": [
+      "2020-09-03 23:27:00 long L4 eq=$6,944"
+    ]
+  },
+  {
+    "label": "p4_ema20t02_OR_pivot10_dd10",
+    "cagr": 110.4,
+    "cmr": 6.3,
+    "max_dd": 90.8,
+    "trades": 2023,
+    "tp": 2022,
+    "to": 0,
+    "liq": 1,
+    "longs": 2014,
+    "shorts": 8,
+    "fav": 1688,
+    "unfav": 334,
+    "filtered": 719,
+    "rescued": 509,
+    "final_eq": 246915.0,
+    "total_return": 246.9,
+    "levels": {
+      "1": 1106,
+      "2": 725,
+      "3": 184,
+      "4": 7
+    },
+    "liq_events": [
+      "2020-09-03 23:27:00 long L4 eq=$6,084"
+    ]
+  },
+  {
+    "label": "p4_ema20t5_AND_rsi14le30",
+    "cagr": 41.5,
+    "cmr": 2.89,
+    "max_dd": 98.0,
+    "trades": 1170,
+    "tp": 1169,
+    "to": 0,
+    "liq": 1,
+    "longs": 1140,
+    "shorts": 29,
+    "fav": 831,
+    "unfav": 338,
+    "filtered": 208,
+    "rescued": 683,
+    "final_eq": 13102.0,
+    "total_return": 13.1,
+    "levels": {
+      "1": 602,
+      "2": 414,
+      "3": 142,
+      "4": 11
+    },
+    "liq_events": [
+      "2021-05-19 11:27:00 long L4 eq=$3,681"
+    ]
+  },
+  {
+    "label": "p4_ema50t5_AND_rsi14le30",
+    "cagr": 37.7,
+    "cmr": 2.67,
+    "max_dd": 98.0,
+    "trades": 1170,
+    "tp": 1169,
+    "to": 0,
+    "liq": 1,
+    "longs": 1140,
+    "shorts": 29,
+    "fav": 804,
+    "unfav": 365,
+    "filtered": 237,
+    "rescued": 722,
+    "final_eq": 10704.0,
+    "total_return": 10.7,
+    "levels": {
+      "1": 619,
+      "2": 411,
+      "3": 130,
+      "4": 9
+    },
+    "liq_events": [
+      "2021-05-19 11:27:00 long L4 eq=$3,317"
+    ]
+  },
+  {
+    "label": "p4_ema20t5_AND_rsi14le40",
+    "cagr": 58.4,
+    "cmr": 3.84,
+    "max_dd": 98.0,
+    "trades": 1437,
+    "tp": 1436,
+    "to": 0,
+    "liq": 1,
+    "longs": 1407,
+    "shorts": 29,
+    "fav": 1079,
+    "unfav": 357,
+    "filtered": 823,
+    "rescued": 642,
+    "final_eq": 30181.0,
+    "total_return": 30.2,
+    "levels": {
+      "1": 725,
+      "2": 511,
+      "3": 187,
+      "4": 13
+    },
+    "liq_events": [
+      "2021-05-19 11:27:00 long L4 eq=$7,360"
+    ]
+  },
+  {
+    "label": "p4_ema50t5_AND_rsi14le40",
+    "cagr": 51.5,
+    "cmr": 3.47,
+    "max_dd": 98.0,
+    "trades": 1359,
+    "tp": 1358,
+    "to": 0,
+    "liq": 1,
+    "longs": 1329,
+    "shorts": 29,
+    "fav": 991,
+    "unfav": 367,
+    "filtered": 936,
+    "rescued": 667,
+    "final_eq": 21707.0,
+    "total_return": 21.7,
+    "levels": {
+      "1": 694,
+      "2": 483,
+      "3": 169,
+      "4": 12
+    },
+    "liq_events": [
+      "2021-05-19 11:27:00 long L4 eq=$5,926"
+    ]
+  },
+  {
+    "label": "p4_ema20t5_AND_rsi14le50",
+    "cagr": 71.7,
+    "cmr": 4.47,
+    "max_dd": 98.0,
+    "trades": 1629,
+    "tp": 1628,
+    "to": 0,
+    "liq": 1,
+    "longs": 1599,
+    "shorts": 29,
+    "fav": 1255,
+    "unfav": 373,
+    "filtered": 1183,
+    "rescued": 600,
+    "final_eq": 54884.0,
+    "total_return": 54.9,
+    "levels": {
+      "1": 825,
+      "2": 577,
+      "3": 210,
+      "4": 16
+    },
+    "liq_events": [
+      "2021-05-19 11:27:00 long L4 eq=$11,694"
+    ]
+  },
+  {
+    "label": "p4_ema50t5_AND_rsi14le50",
+    "cagr": 65.4,
+    "cmr": 4.16,
+    "max_dd": 98.0,
+    "trades": 1514,
+    "tp": 1513,
+    "to": 0,
+    "liq": 1,
+    "longs": 1484,
+    "shorts": 29,
+    "fav": 1129,
+    "unfav": 384,
+    "filtered": 1468,
+    "rescued": 637,
+    "final_eq": 41615.0,
+    "total_return": 41.6,
+    "levels": {
+      "1": 777,
+      "2": 531,
+      "3": 190,
+      "4": 15
+    },
+    "liq_events": [
+      "2021-05-19 11:27:00 long L4 eq=$7,488"
+    ]
+  },
+  {
+    "label": "p4_ema20t5_AND_atr0.8",
+    "cagr": 22.0,
+    "cmr": 1.64,
+    "max_dd": 92.5,
+    "trades": 352,
+    "tp": 352,
+    "to": 0,
+    "liq": 0,
+    "longs": 323,
+    "shorts": 29,
+    "fav": 260,
+    "unfav": 92,
+    "filtered": 382,
+    "rescued": 122,
+    "final_eq": 4349.0,
+    "total_return": 4.3,
+    "levels": {
+      "1": 181,
+      "2": 116,
+      "3": 52,
+      "4": 3
+    },
+    "liq_events": []
+  },
+  {
+    "label": "p4_ema20t5_AND_atr1.0",
+    "cagr": 64.9,
+    "cmr": 4.13,
+    "max_dd": 92.5,
+    "trades": 892,
+    "tp": 892,
+    "to": 0,
+    "liq": 0,
+    "longs": 863,
+    "shorts": 29,
+    "fav": 686,
+    "unfav": 206,
+    "filtered": 900,
+    "rescued": 270,
+    "final_eq": 40688.0,
+    "total_return": 40.7,
+    "levels": {
+      "1": 454,
+      "2": 312,
+      "3": 117,
+      "4": 9
+    },
+    "liq_events": []
+  },
+  {
+    "label": "p4_ema20t5_AND_atr1.2",
+    "cagr": 116.2,
+    "cmr": 6.47,
+    "max_dd": 92.5,
+    "trades": 1369,
+    "tp": 1369,
+    "to": 0,
+    "liq": 0,
+    "longs": 1340,
+    "shorts": 29,
+    "fav": 1072,
+    "unfav": 297,
+    "filtered": 1266,
+    "rescued": 416,
+    "final_eq": 301608.0,
+    "total_return": 301.6,
+    "levels": {
+      "1": 700,
+      "2": 474,
+      "3": 181,
+      "4": 14
+    },
+    "liq_events": []
+  },
+  {
+    "label": "p4_ema20t5_AND_spanb240",
+    "cagr": 79.8,
+    "cmr": 4.87,
+    "max_dd": 92.5,
+    "trades": 959,
+    "tp": 959,
+    "to": 0,
+    "liq": 0,
+    "longs": 930,
+    "shorts": 29,
+    "fav": 848,
+    "unfav": 111,
+    "filtered": 252,
+    "rescued": 116,
+    "final_eq": 76932.0,
+    "total_return": 76.9,
+    "levels": {
+      "1": 504,
+      "2": 330,
+      "3": 116,
+      "4": 9
+    },
+    "liq_events": []
+  },
+  {
+    "label": "p4_ema20t5_AND_spanb120",
+    "cagr": 68.7,
+    "cmr": 4.39,
+    "max_dd": 92.5,
+    "trades": 787,
+    "tp": 787,
+    "to": 0,
+    "liq": 0,
+    "longs": 758,
+    "shorts": 29,
+    "fav": 695,
+    "unfav": 92,
+    "filtered": 134,
+    "rescued": 44,
+    "final_eq": 47998.0,
+    "total_return": 48.0,
+    "levels": {
+      "1": 392,
+      "2": 278,
+      "3": 110,
+      "4": 7
+    },
+    "liq_events": []
+  },
+  {
+    "label": "p4_ema50t5_AND_spanb240",
+    "cagr": 55.3,
+    "cmr": 3.63,
+    "max_dd": 78.1,
+    "trades": 735,
+    "tp": 735,
+    "to": 0,
+    "liq": 0,
+    "longs": 706,
+    "shorts": 29,
+    "fav": 653,
+    "unfav": 82,
+    "filtered": 262,
+    "rescued": 113,
+    "final_eq": 26024.0,
+    "total_return": 26.0,
+    "levels": {
+      "1": 402,
+      "2": 235,
+      "3": 90,
+      "4": 8
+    },
+    "liq_events": []
+  },
+  {
+    "label": "p4_v28_AND_rsi14le40",
+    "cagr": 92.4,
+    "cmr": 5.52,
+    "max_dd": 79.6,
+    "trades": 1328,
+    "tp": 1328,
+    "to": 0,
+    "liq": 0,
+    "longs": 1299,
+    "shorts": 29,
+    "fav": 988,
+    "unfav": 340,
+    "filtered": 713,
+    "rescued": 639,
+    "final_eq": 127429.0,
+    "total_return": 127.4,
+    "levels": {
+      "1": 677,
+      "2": 475,
+      "3": 163,
+      "4": 13
+    },
+    "liq_events": []
+  },
+  {
+    "label": "p4_v28_AND_rsi14le50",
+    "cagr": 111.7,
+    "cmr": 6.29,
+    "max_dd": 79.6,
+    "trades": 1447,
+    "tp": 1447,
+    "to": 0,
+    "liq": 0,
+    "longs": 1418,
+    "shorts": 29,
+    "fav": 1097,
+    "unfav": 350,
+    "filtered": 995,
+    "rescued": 605,
+    "final_eq": 258713.0,
+    "total_return": 258.7,
+    "levels": {
+      "1": 737,
+      "2": 520,
+      "3": 174,
+      "4": 16
+    },
+    "liq_events": []
+  },
+  {
+    "label": "p4_v28_AND_rsi14le60",
+    "cagr": 118.3,
+    "cmr": 6.55,
+    "max_dd": 79.6,
+    "trades": 1501,
+    "tp": 1501,
+    "to": 0,
+    "liq": 0,
+    "longs": 1472,
+    "shorts": 29,
+    "fav": 1149,
+    "unfav": 352,
+    "filtered": 1125,
+    "rescued": 618,
+    "final_eq": 323844.0,
+    "total_return": 323.8,
+    "levels": {
+      "1": 775,
+      "2": 528,
+      "3": 181,
+      "4": 17
+    },
+    "liq_events": []
+  },
+  {
+    "label": "p4_pivot10_AND_rsi14le40",
+    "cagr": 2.7,
+    "cmr": 0.22,
+    "max_dd": 34.2,
+    "trades": 31,
+    "tp": 31,
+    "to": 0,
+    "liq": 0,
+    "longs": 2,
+    "shorts": 29,
+    "fav": 31,
+    "unfav": 0,
+    "filtered": 0,
+    "rescued": 0,
+    "final_eq": 1219.0,
+    "total_return": 1.2,
+    "levels": {
+      "1": 13,
+      "2": 10,
+      "3": 8
+    },
+    "liq_events": []
+  },
+  {
+    "label": "p4_pivot10_AND_rsi14le50",
+    "cagr": 3.0,
+    "cmr": 0.24,
+    "max_dd": 33.6,
+    "trades": 38,
+    "tp": 38,
+    "to": 0,
+    "liq": 0,
+    "longs": 9,
+    "shorts": 29,
+    "fav": 38,
+    "unfav": 0,
+    "filtered": 0,
+    "rescued": 0,
+    "final_eq": 1243.0,
+    "total_return": 1.2,
+    "levels": {
+      "1": 18,
+      "2": 12,
+      "3": 8
+    },
+    "liq_events": []
+  },
+  {
+    "label": "p4_pivot10_AND_rsi14le60",
+    "cagr": 7.6,
+    "cmr": 0.61,
+    "max_dd": 30.9,
+    "trades": 112,
+    "tp": 112,
+    "to": 0,
+    "liq": 0,
+    "longs": 83,
+    "shorts": 29,
+    "fav": 106,
+    "unfav": 6,
+    "filtered": 8,
+    "rescued": 0,
+    "final_eq": 1721.0,
+    "total_return": 1.7,
+    "levels": {
+      "1": 59,
+      "2": 37,
+      "3": 16
+    },
+    "liq_events": []
+  },
+  {
+    "label": "p4_pivot10_AND_atr0.8",
+    "cagr": 7.5,
+    "cmr": 0.6,
+    "max_dd": 32.3,
+    "trades": 119,
+    "tp": 119,
+    "to": 0,
+    "liq": 0,
+    "longs": 90,
+    "shorts": 29,
+    "fav": 110,
+    "unfav": 9,
+    "filtered": 41,
+    "rescued": 0,
+    "final_eq": 1714.0,
+    "total_return": 1.7,
+    "levels": {
+      "1": 69,
+      "2": 33,
+      "3": 17
+    },
+    "liq_events": []
+  },
+  {
+    "label": "p4_pivot10_AND_atr1.0",
+    "cagr": 25.7,
+    "cmr": 1.89,
+    "max_dd": 90.8,
+    "trades": 536,
+    "tp": 535,
+    "to": 0,
+    "liq": 1,
+    "longs": 506,
+    "shorts": 29,
+    "fav": 464,
+    "unfav": 71,
+    "filtered": 108,
+    "rescued": 0,
+    "final_eq": 5442.0,
+    "total_return": 5.4,
+    "levels": {
+      "1": 302,
+      "2": 188,
+      "3": 44,
+      "4": 1
+    },
+    "liq_events": [
+      "2020-09-03 23:27:00 long L4 eq=$1,600"
+    ]
+  },
+  {
+    "label": "p4_pivot10_AND_atr1.2",
+    "cagr": 45.9,
+    "cmr": 3.14,
+    "max_dd": 90.8,
+    "trades": 916,
+    "tp": 915,
+    "to": 0,
+    "liq": 1,
+    "longs": 891,
+    "shorts": 24,
+    "fav": 770,
+    "unfav": 145,
+    "filtered": 132,
+    "rescued": 0,
+    "final_eq": 16369.0,
+    "total_return": 16.4,
+    "levels": {
+      "1": 528,
+      "2": 315,
+      "3": 71,
+      "4": 1
+    },
+    "liq_events": [
+      "2020-09-03 23:27:00 long L4 eq=$2,211"
+    ]
+  },
+  {
+    "label": "p4_pivot10_AND_spanb240",
+    "cagr": 52.5,
+    "cmr": 3.52,
+    "max_dd": 90.8,
+    "trades": 1063,
+    "tp": 1062,
+    "to": 0,
+    "liq": 1,
+    "longs": 1051,
+    "shorts": 11,
+    "fav": 896,
+    "unfav": 166,
+    "filtered": 24,
+    "rescued": 0,
+    "final_eq": 22738.0,
+    "total_return": 22.7,
+    "levels": {
+      "1": 610,
+      "2": 374,
+      "3": 76,
+      "4": 2
+    },
+    "liq_events": [
+      "2020-09-03 23:27:00 long L4 eq=$2,783"
+    ]
+  },
+  {
+    "label": "p4_pivot10_AND_spanb120",
+    "cagr": 58.7,
+    "cmr": 3.86,
+    "max_dd": 90.8,
+    "trades": 1202,
+    "tp": 1201,
+    "to": 0,
+    "liq": 1,
+    "longs": 1193,
+    "shorts": 8,
+    "fav": 972,
+    "unfav": 229,
+    "filtered": 17,
+    "rescued": 0,
+    "final_eq": 30607.0,
+    "total_return": 30.6,
+    "levels": {
+      "1": 691,
+      "2": 425,
+      "3": 83,
+      "4": 2
+    },
+    "liq_events": [
+      "2020-09-03 23:27:00 long L4 eq=$3,234"
+    ]
+  },
+  {
+    "label": "p4_boll20_AND_rsi14le30",
+    "cagr": 23.5,
+    "cmr": 1.74,
+    "max_dd": 93.6,
+    "trades": 481,
+    "tp": 481,
+    "to": 0,
+    "liq": 0,
+    "longs": 452,
+    "shorts": 29,
+    "fav": 320,
+    "unfav": 161,
+    "filtered": 36,
+    "rescued": 303,
+    "final_eq": 4761.0,
+    "total_return": 4.8,
+    "levels": {
+      "1": 254,
+      "2": 164,
+      "3": 57,
+      "4": 6
+    },
+    "liq_events": []
+  },
+  {
+    "label": "p4_boll20_AND_rsi14le40",
+    "cagr": 30.6,
+    "cmr": 2.22,
+    "max_dd": 97.2,
+    "trades": 570,
+    "tp": 569,
+    "to": 0,
+    "liq": 1,
+    "longs": 540,
+    "shorts": 29,
+    "fav": 401,
+    "unfav": 168,
+    "filtered": 132,
+    "rescued": 287,
+    "final_eq": 7208.0,
+    "total_return": 7.2,
+    "levels": {
+      "1": 293,
+      "2": 205,
+      "3": 65,
+      "4": 6
+    },
+    "liq_events": [
+      "2018-11-20 06:48:00 long L4 eq=$997"
+    ]
+  },
+  {
+    "label": "p4_boll20_AND_rsi14le50",
+    "cagr": 32.3,
+    "cmr": 2.33,
+    "max_dd": 97.2,
+    "trades": 602,
+    "tp": 601,
+    "to": 0,
+    "liq": 1,
+    "longs": 572,
+    "shorts": 29,
+    "fav": 424,
+    "unfav": 177,
+    "filtered": 147,
+    "rescued": 287,
+    "final_eq": 7957.0,
+    "total_return": 8.0,
+    "levels": {
+      "1": 313,
+      "2": 216,
+      "3": 66,
+      "4": 6
+    },
+    "liq_events": [
+      "2018-11-20 06:48:00 long L4 eq=$997"
+    ]
+  }
+]
