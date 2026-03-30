@@ -40,7 +40,7 @@ def get_mid_price(coin: str = cfg.COIN) -> float:
 
 def get_candles(coin: str = cfg.COIN, interval: str = "4h", n: int = 60) -> list:
     end_ms = int(time.time() * 1000)
-    interval_ms = {"1h": 3_600_000, "4h": 14_400_000}[interval]
+    interval_ms = {"1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000}[interval]
     start_ms = end_ms - n * interval_ms
     resp = requests.post(
         f"{_URL}/info",
