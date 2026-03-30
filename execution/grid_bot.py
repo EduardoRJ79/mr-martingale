@@ -24,6 +24,7 @@ from . import grid_state as gs_mod
 from .grid_state import LONG, SHORT, GridState, BotState
 from . import notifier
 from . import command_bus
+from . import binance_data
 
 if cfg.PAPER_TRADE:
     from . import paper_client as hl
@@ -355,7 +356,7 @@ def _manual_close_any_active(bs: BotState, reason: str = "MANUAL_CLOSE") -> BotS
     return bs
 
 
-def process_pending_commands(bs: BotState, price: float, ema34: float, sma14: float) -> BotState:
+def process_pending_commands(bs: BotState, state: dict) -> BotState:
     """
     Handle queued manual commands from local console.
     Supported actions:
@@ -375,18 +376,18 @@ def process_pending_commands(bs: BotState, price: float, ema34: float, sma14: fl
         log.info(f"Processing command {cmd_id} action={action} source={src}")
 
         try:
-            if action == "manual_long":
-                if bs.long_grid.active or bs.short_grid.active:
-                    raise RuntimeError("Cannot manual-long: a grid is already active")
-                grid = open_grid(bs, LONG, price, ema34, sma14)
+            if action == "manual_long" and not bs.long_grid.active and not bs.short_grid.active:
+                risk = cfg.RISK_PCT
+                is_bull = state["is_bull"] if state["is_bull"] is not None else True
+                grid = open_grid(bs, LONG, state, risk_pct=risk, entry_gate="manual", is_favored=is_bull)
                 if grid is None:
                     raise RuntimeError("open_grid(LONG) returned None")
                 msg = f"Manual LONG opened @ ${grid.blended_entry:,.1f}"
 
-            elif action == "manual_short":
-                if bs.long_grid.active or bs.short_grid.active:
-                    raise RuntimeError("Cannot manual-short: a grid is already active")
-                grid = open_grid(bs, SHORT, price, ema34, sma14)
+            elif action == "manual_short" and not bs.short_grid.active and not bs.long_grid.active:
+                risk = cfg.RISK_PCT
+                is_bull = state["is_bull"] if state["is_bull"] is not None else True
+                grid = open_grid(bs, SHORT, state, risk_pct=risk, entry_gate="manual", is_favored=not is_bull)
                 if grid is None:
                     raise RuntimeError("open_grid(SHORT) returned None")
                 msg = f"Manual SHORT opened @ ${grid.blended_entry:,.1f}"
@@ -421,8 +422,8 @@ def sleep_with_command_watch(bs: BotState, seconds: int) -> BotState:
         pending = command_bus.list_pending()
         if pending:
             try:
-                price, ema34, sma14 = fetch_market_state()
-                bs = process_pending_commands(bs, price, ema34, sma14)
+                state = fetch_market_state()
+                bs = process_pending_commands(bs, state)
             except Exception as e:
                 log.exception(f"Command watch error: {e}")
                 notifier.error(f"Command watch error: {e}")
@@ -434,24 +435,64 @@ def sleep_with_command_watch(bs: BotState, seconds: int) -> BotState:
 
 # ─── MA calculations ──────────────────────────────────────────────────────
 
-def fetch_market_state():
+def fetch_market_state() -> dict:
     """
-    Returns (price, ema34, sma14) using live price + last confirmed 4H closes.
+    Return dict with all v3.0 indicators:
+    price, ema34, sma14, ema20, sma440, high_20d, rsi14, is_bull
     """
-    candles = hl.get_candles(cfg.COIN, cfg.CANDLE_INTERVAL, n=60)
-    closed = candles[:-1]   # exclude current open bar
+    # 4H candles (need 500 for RSI warmup + high_20d window)
+    candles = hl.get_candles(cfg.COIN, cfg.CANDLE_INTERVAL, n=500)
+    closed = candles[:-1]  # exclude current open bar
     closes = pd.Series([float(c["c"]) for c in closed])
+    highs = pd.Series([float(c["h"]) for c in closed])
+
     ema34 = float(closes.ewm(span=cfg.EMA_SPAN, adjust=False).mean().iloc[-1])
     sma14 = float(closes.rolling(cfg.MA_PERIOD).mean().iloc[-1])
-    price = hl.get_mid_price(cfg.COIN)
-    return price, ema34, sma14
+    ema20 = float(closes.ewm(span=cfg.EMA20_SPAN, adjust=False).mean().iloc[-1])
+
+    # High of last 20 days (120 × 4H bars)
+    high_20d = float(highs.rolling(cfg.HIGH_20D_BARS).max().iloc[-1])
+
+    # RSI(14) on 4H closes (Wilder SMA)
+    delta = closes.diff()
+    gain = delta.clip(lower=0).rolling(cfg.RSI_PERIOD).mean()
+    loss = (-delta.clip(upper=0)).rolling(cfg.RSI_PERIOD).mean()
+    rs = gain / loss.replace(0, float("nan"))
+    rsi_series = 100 - (100 / (1 + rs))
+    rsi14 = float(rsi_series.iloc[-1])
+
+    # SMA440 from Binance daily candles
+    daily_closes = binance_data.fetch_daily_closes(limit=500)
+    sma440 = None
+    is_bull = None
+    if len(daily_closes) >= cfg.SMA440_SPAN:
+        sma440_val = sum(daily_closes[-cfg.SMA440_SPAN:]) / cfg.SMA440_SPAN
+        sma440 = sma440_val
+        price = hl.get_mid_price(cfg.COIN)
+        is_bull = price > sma440_val
+    else:
+        price = hl.get_mid_price(cfg.COIN)
+
+    return {
+        "price": price,
+        "ema34": ema34,
+        "sma14": sma14,
+        "ema20": ema20,
+        "sma440": sma440,
+        "high_20d": high_20d,
+        "rsi14": rsi14,
+        "is_bull": is_bull,
+    }
 
 
-def send_2h_report(bs: 'BotState', price: float, ema34: float, sma14: float):
+def send_2h_report(bs: 'BotState', state: dict):
     """Send a 2-hour status webhook with grid details."""
     import requests
     if not cfg.DISCORD_WEBHOOK:
         return
+    price = state["price"]
+    ema34 = state["ema34"]
+    sma14 = state["sma14"]
     bal = hl.get_account_balance()
     lines = [f"📊 **2h Status Report** — BTC ${price:,.1f} | EMA34 ${ema34:,.1f} | SMA14 ${sma14:,.1f} | Bal: ${bal:,.2f}"]
 
@@ -490,29 +531,90 @@ def pct_below(price, ma):
     return (ma - price) / ma * 100
 
 
-def long_triggered(price, ema34, sma14):
-    return (pct_below(price, ema34) >= cfg.LONG_TRIGGER_PCT and
-            pct_below(price, sma14) >= cfg.LONG_TRIGGER_PCT)
+def long_triggered(state: dict) -> tuple:
+    """
+    v3.0 entry logic for LONG.
+    Returns (triggered: bool, gate: str, risk_pct: float).
+    """
+    price = state["price"]
+    is_bull = state["is_bull"]
+
+    # Regime: if SMA440 unavailable, skip entirely
+    if is_bull is None:
+        return (False, "no_sma440", 0.0)
+
+    is_favored = is_bull  # bull = favored for longs
+    trigger_scale = 1.0 if is_favored else cfg.UNFAV_TRIGGER_SCALE
+
+    # Gate 1: v28 (EMA34 + SMA14)
+    v28_gate = (pct_below(price, state["ema34"]) >= cfg.LONG_TRIGGER_PCT * trigger_scale and
+                pct_below(price, state["sma14"]) >= cfg.LONG_TRIGGER_PCT * trigger_scale)
+
+    # Gate 2: EMA20
+    ema20_gate = pct_below(price, state["ema20"]) >= cfg.EMA20_TRIGGER_PCT * trigger_scale
+
+    if not (v28_gate or ema20_gate):
+        return (False, "no_trigger", 0.0)
+
+    # dd20d filter
+    dd_from_high = (price / state["high_20d"]) - 1.0
+    if dd_from_high < cfg.DD20D_THRESHOLD:
+        # RSI rescue
+        if state["rsi14"] <= cfg.RSI_RESCUE_THRESHOLD:
+            risk = cfg.RESCUE_RISK_PCT * (1.0 if is_favored else cfg.UNFAV_RISK_SCALE)
+            return (True, "rescued", risk)
+        else:
+            return (False, "dd20d_blocked", 0.0)
+
+    # Normal entry
+    risk = cfg.RISK_PCT * (1.0 if is_favored else cfg.UNFAV_RISK_SCALE)
+    gate = "v28" if v28_gate else "ema20"
+    return (True, gate, risk)
 
 
-def short_triggered(price, ema34, sma14):
-    return (pct_above(price, ema34) >= cfg.SHORT_TRIGGER_PCT and
-            pct_above(price, sma14) >= cfg.SHORT_TRIGGER_PCT)
+def short_triggered(state: dict) -> tuple:
+    """
+    v3.0 entry logic for SHORT.
+    Returns (triggered: bool, gate: str, risk_pct: float).
+    No dd20d/RSI filter for shorts.
+    """
+    price = state["price"]
+    is_bull = state["is_bull"]
+
+    if is_bull is None:
+        return (False, "no_sma440", 0.0)
+
+    # For shorts: bear = favored
+    is_favored = not is_bull
+    trigger_scale = 1.0 if is_favored else cfg.UNFAV_TRIGGER_SCALE
+
+    triggered = (pct_above(price, state["ema34"]) >= cfg.SHORT_TRIGGER_PCT * trigger_scale and
+                 pct_above(price, state["sma14"]) >= cfg.SHORT_TRIGGER_PCT * trigger_scale)
+
+    if not triggered:
+        return (False, "no_trigger", 0.0)
+
+    risk = cfg.RISK_PCT * (1.0 if is_favored else cfg.UNFAV_RISK_SCALE)
+    return (True, "short", risk)
 
 
 # ─── Grid open ────────────────────────────────────────────────────────────
 
-def open_grid(bs: BotState, side: str, price: float, ema34: float, sma14: float) -> GridState:
+def open_grid(bs: BotState, side: str, state: dict,
+              risk_pct: float, entry_gate: str, is_favored: bool) -> GridState:
     leverage = cfg.LEVERAGE if side == LONG else cfg.SHORT_LEVERAGE
+    price = state["price"]
 
-    # Dynamic margin: 1.6% of current account balance (compounds as account grows)
     balance = hl.get_account_balance()
-    base_margin = round(balance * cfg.BASE_MARGIN_PCT, 2)
-    base_margin = max(base_margin, 1.0)   # floor: never below $1 L1
+    hold_bars = cfg.MAX_HOLD_BARS if is_favored else int(cfg.MAX_HOLD_BARS * cfg.UNFAV_HOLD_SCALE)
+    max_hold_h = hold_bars * 4
 
     log.info(
-        f"TRIGGER {side.upper()}: BTC ${price:,.1f} | EMA34 ${ema34:,.1f} | SMA14 ${sma14:,.1f} "
-        f"| {leverage}x | margin=${base_margin:.2f} (bal=${balance:.2f})"
+        f"TRIGGER {side.upper()} [{entry_gate}]: BTC ${price:,.1f} "
+        f"| EMA34 ${state['ema34']:,.1f} | SMA14 ${state['sma14']:,.1f} "
+        f"| EMA20 ${state['ema20']:,.1f} | RSI14 {state['rsi14']:.1f} "
+        f"| {'FAVORED' if is_favored else 'UNFAVORED'} "
+        f"| risk={risk_pct:.2%} | {leverage}x | bal=${balance:.2f}"
     )
 
     # Exchange-level leverage guardrail for this side
@@ -525,10 +627,16 @@ def open_grid(bs: BotState, side: str, price: float, ema34: float, sma14: float)
     grid.side = side
     grid.active = True
     grid.trigger_px = price
-    grid.ema34 = ema34
-    grid.sma14 = sma14
+    grid.ema34 = state["ema34"]
+    grid.sma14 = state["sma14"]
     grid.opened_at = datetime.now(timezone.utc).isoformat()
-    grid.levels = gs_mod.build_levels(price, side, base_margin=base_margin)
+    grid.is_favored = is_favored
+    grid.entry_gate = entry_gate
+    grid.risk_pct = risk_pct
+    grid.max_hold_hours = max_hold_h
+    grid.levels = gs_mod.build_levels(
+        price, side, risk_pct=risk_pct, balance=balance, is_favored=is_favored
+    )
 
     l1 = grid.levels[0]
     qty = round(l1.notional / price, cfg.SZ_DECIMALS)
@@ -550,8 +658,8 @@ def open_grid(bs: BotState, side: str, price: float, ema34: float, sma14: float)
     l1.fill_qty = round(fill_qty if fill_qty > 0 else qty, cfg.SZ_DECIMALS)
     grid.recalc()
 
-    pct_dev = pct_below(price, ema34) if side == LONG else pct_above(price, ema34)
-    notifier.grid_opened(side, 1, fill_px, ema34, sma14, l1.margin, pct_dev)
+    pct_dev = pct_below(price, state["ema34"]) if side == LONG else pct_above(price, state["ema34"])
+    notifier.grid_opened(side, 1, fill_px, state["ema34"], state["sma14"], l1.margin, pct_dev)
 
     placed_oids = []
     try:
@@ -842,10 +950,13 @@ def run():
     mode = "📝 PAPER TRADE" if cfg.PAPER_TRADE else "🔴 LIVE"
     log.info("=" * 60)
     log.info(f"Mr Martingale v{cfg.BOT_VERSION} — LONG + SHORT [{mode}]")
-    log.info(f"Coin: {cfg.COIN} | {cfg.NUM_LEVELS}L | 2x mult | "
-             f"Long: {cfg.LONG_TRIGGER_PCT}%/{cfg.LEVERAGE}x | "
-             f"Short: {cfg.SHORT_TRIGGER_PCT}%/{cfg.SHORT_LEVERAGE}x | TP: {cfg.TP_PCT}%")
-    log.info(f"Base margin: ${cfg.BASE_MARGIN_USD} | Gaps: {cfg.LEVEL_GAPS}")
+    log.info(f"Coin: {cfg.COIN} | {cfg.NUM_LEVELS}L | "
+             f"Long trigger: {cfg.LONG_TRIGGER_PCT}%/{cfg.EMA20_TRIGGER_PCT}% EMA20 | "
+             f"Short trigger: {cfg.SHORT_TRIGGER_PCT}% | TP: {cfg.TP_PCT}%")
+    log.info(f"Risk: {cfg.RISK_PCT:.0%} | Rescue: {cfg.RESCUE_RISK_PCT:.0%} | "
+             f"Mults: {cfg.LEVEL_MULTS_SEQ} | Gaps: {cfg.LEVEL_GAPS}")
+    log.info(f"Timeout: {cfg.MAX_HOLD_BARS} bars favored | "
+             f"{int(cfg.MAX_HOLD_BARS * cfg.UNFAV_HOLD_SCALE)} bars unfavored")
     log.info("=" * 60)
 
     # Set leverage ceiling high enough for either side at startup
@@ -868,8 +979,8 @@ def run():
 
     # Process any queued manual commands immediately on startup
     try:
-        price0, ema340, sma140 = fetch_market_state()
-        bs = process_pending_commands(bs, price0, ema340, sma140)
+        state0 = fetch_market_state()
+        bs = process_pending_commands(bs, state0)
     except Exception as e:
         log.error(f"Startup command processing error: {e}")
 
@@ -878,7 +989,10 @@ def run():
     while True:
         try:
             poll_count += 1
-            price, ema34, sma14 = fetch_market_state()
+            state = fetch_market_state()
+            price = state["price"]
+            ema34 = state["ema34"]
+            sma14 = state["sma14"]
             pb = pct_below(price, ema34)   # positive = price below EMA34
             pa = pct_above(price, ema34)   # positive = price above EMA34
             pb_ma = pct_below(price, sma14)
@@ -897,8 +1011,10 @@ def run():
                 drawdown_text = f"{drawdown:+.2f}%" if isinstance(drawdown, (int, float)) else "NA"
                 log.info(
                     f"{mode_tag}BTC ${price:,.1f} | "
-                    f"↓EMA34 {pb:+.2f}% ↓SMA14 {pb_ma:+.2f}% | "
-                    f"↑EMA34 {pa:+.2f}% ↑SMA14 {pa_ma:+.2f}% | "
+                    f"↓EMA34 {pct_below(price, ema34):+.2f}% ↓SMA14 {pct_below(price, sma14):+.2f}% "
+                    f"↓EMA20 {pct_below(price, state['ema20']):+.2f}% | "
+                    f"RSI {state['rsi14']:.0f} | "
+                    f"{'BULL' if state['is_bull'] else 'BEAR' if state['is_bull'] is not None else 'N/A'} | "
                     f"Long: {'OPEN' if bs.long_grid.active else 'idle'} | "
                     f"Short: {'OPEN' if bs.short_grid.active else 'idle'} | "
                     f"stop={stop_text} | unrealized_pnl=${metrics['unrealized_pnl']:+.2f} | drawdown={drawdown_text}"
@@ -906,8 +1022,10 @@ def run():
             else:
                 log.info(
                     f"{mode_tag}BTC ${price:,.1f} | "
-                    f"↓EMA34 {pb:+.2f}% ↓SMA14 {pb_ma:+.2f}% | "
-                    f"↑EMA34 {pa:+.2f}% ↑SMA14 {pa_ma:+.2f}% | "
+                    f"↓EMA34 {pct_below(price, ema34):+.2f}% ↓SMA14 {pct_below(price, sma14):+.2f}% "
+                    f"↓EMA20 {pct_below(price, state['ema20']):+.2f}% | "
+                    f"RSI {state['rsi14']:.0f} | "
+                    f"{'BULL' if state['is_bull'] else 'BEAR' if state['is_bull'] is not None else 'N/A'} | "
                     f"Long: {'OPEN' if bs.long_grid.active else 'idle'} | "
                     f"Short: {'OPEN' if bs.short_grid.active else 'idle'}"
                 )
@@ -917,49 +1035,55 @@ def run():
                 raise RuntimeError("Invariant violation: both long_grid and short_grid active")
 
             # Manual console commands (processed before trigger logic)
-            bs = process_pending_commands(bs, price, ema34, sma14)
+            bs = process_pending_commands(bs, state)
 
             # ── Heartbeat ─────────────────────────────────────────────
             if poll_count % HEARTBEAT_EVERY == 0:
                 bal = hl.get_account_balance()
-                notifier.heartbeat(price, ema34, sma14, pa, pb,
+                notifier.heartbeat(price, state["ema34"], state["sma14"], pa, pb,
                                    bs.long_grid.active, bs.short_grid.active, bal)
 
             # ── 2h webhook report ─────────────────────────────────────
             if poll_count % WEBHOOK_REPORT_EVERY == 0:
-                send_2h_report(bs, price, ema34, sma14)
+                send_2h_report(bs, state)
 
             # ── LONG GRID ─────────────────────────────────────────────
             if bs.long_grid.active:
                 check_fills(bs, bs.long_grid)
                 if check_tp_hit(bs, bs.long_grid):
                     bs = gs_mod.reset_grid(bs, LONG)
-                elif bs.long_grid.hold_hours() >= cfg.MAX_HOLD_HOURS:
+                elif bs.long_grid.hold_hours() >= bs.long_grid.max_hold_hours:
                     ok = force_close(bs, bs.long_grid, "TIMEOUT")
                     if ok:
                         bs = gs_mod.reset_grid(bs, LONG)
                     else:
                         raise RuntimeError("LONG force_close failed; state not reset")
 
-            elif (not bs.short_grid.active) and long_triggered(price, ema34, sma14):
-                if open_grid(bs, LONG, price, ema34, sma14) is None:
-                    log.error("open_grid(LONG) failed — skipping this poll")
+            elif not bs.short_grid.active:
+                triggered, gate, risk = long_triggered(state)
+                if triggered:
+                    is_favored = state["is_bull"]
+                    if open_grid(bs, LONG, state, risk_pct=risk, entry_gate=gate, is_favored=is_favored) is None:
+                        log.error("open_grid(LONG) failed — skipping this poll")
 
             # ── SHORT GRID ────────────────────────────────────────────
             if bs.short_grid.active:
                 check_fills(bs, bs.short_grid)
                 if check_tp_hit(bs, bs.short_grid):
                     bs = gs_mod.reset_grid(bs, SHORT)
-                elif bs.short_grid.hold_hours() >= cfg.MAX_HOLD_HOURS:
+                elif bs.short_grid.hold_hours() >= bs.short_grid.max_hold_hours:
                     ok = force_close(bs, bs.short_grid, "TIMEOUT")
                     if ok:
                         bs = gs_mod.reset_grid(bs, SHORT)
                     else:
                         raise RuntimeError("SHORT force_close failed; state not reset")
 
-            elif (not bs.long_grid.active) and short_triggered(price, ema34, sma14):
-                if open_grid(bs, SHORT, price, ema34, sma14) is None:
-                    log.error("open_grid(SHORT) failed — skipping this poll")
+            elif not bs.long_grid.active:
+                triggered, gate, risk = short_triggered(state)
+                if triggered:
+                    is_favored = not state["is_bull"]
+                    if open_grid(bs, SHORT, state, risk_pct=risk, entry_gate=gate, is_favored=is_favored) is None:
+                        log.error("open_grid(SHORT) failed — skipping this poll")
 
         except KeyboardInterrupt:
             log.info("Shutting down")
