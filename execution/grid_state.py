@@ -44,6 +44,11 @@ class GridState:
     blended_entry:  float = 0.0
     total_qty:      float = 0.0
     total_margin:   float = 0.0
+    # v3.0 fields
+    is_favored:     bool  = True
+    entry_gate:     str   = ""       # "v28", "ema20", "rescued"
+    risk_pct:       float = 0.0
+    max_hold_hours: int   = 2880     # 720 bars × 4h = 2880h (favored default)
 
     def filled_levels(self):
         return [l for l in self.levels if l.filled]
@@ -130,26 +135,51 @@ def reset_grid(bs: BotState, side: str) -> BotState:
     return bs
 
 def build_levels(trigger_px: float, side: str,
-                 base_margin: float = None) -> List[GridLevel]:
+                 risk_pct: float = None, balance: float = None,
+                 is_favored: bool = True) -> List[GridLevel]:
     """
-    Build 5 grid levels.
-    LONG:  levels ladder DOWN from trigger (buy dips)  — 20x leverage
-    SHORT: levels ladder UP   from trigger (sell rips) — 15x leverage
+    Build 5 grid levels using v3.0 sizing.
 
-    base_margin: L1 margin in USD. If None, falls back to cfg.BASE_MARGIN_USD.
-                 Pass account_balance * cfg.BASE_MARGIN_PCT for dynamic compounding.
+    L1 notional = risk_pct × balance
+    L2-L5: cumulative multipliers from LEVEL_MULTS_SEQ [2.0, 2.5, 2.5, 7.0]
+    Grid gaps scaled by UNFAV_SPACING_SCALE if unfavored.
     """
-    leverage    = cfg.LEVERAGE if side == LONG else cfg.SHORT_LEVERAGE
-    base_margin = base_margin if base_margin is not None else cfg.BASE_MARGIN_USD
+    leverage = cfg.LEVERAGE if side == LONG else cfg.SHORT_LEVERAGE
+
+    # Fallback for backward compat (manual commands without risk context)
+    if risk_pct is None:
+        risk_pct = cfg.RISK_PCT
+    if balance is None:
+        balance = cfg.INITIAL_EQUITY_USD
+
+    l1_notional = risk_pct * balance
+
+    # Compute gap scaling
+    spacing_scale = 1.0 if is_favored else cfg.UNFAV_SPACING_SCALE
+    scaled_gaps = [g * spacing_scale for g in cfg.LEVEL_GAPS]
+    cum_drops = []
+    acc = 0.0
+    for g in scaled_gaps:
+        acc += g
+        cum_drops.append(acc / 100.0)
+
+    # Build cumulative multiplier sequence
+    cum_mult = 1.0
+    mults = [1.0]
+    for m in cfg.LEVEL_MULTS_SEQ:
+        cum_mult *= m
+        mults.append(cum_mult)
+    # mults = [1.0, 2.0, 5.0, 12.5, 87.5]
+
     levels = []
     for i in range(cfg.NUM_LEVELS):
-        margin   = base_margin * (cfg.MULTIPLIER ** i)
-        notional = margin * leverage
+        notional = l1_notional * mults[i]
+        margin = notional / leverage
         if i == 0:
             target = trigger_px
         else:
-            offset = cfg.CUM_DROPS[i - 1]
-            target = trigger_px * (1 - offset) if side == LONG else trigger_px * (1 + offset)
+            drop = cum_drops[i - 1]
+            target = trigger_px * (1 - drop) if side == LONG else trigger_px * (1 + drop)
         levels.append(GridLevel(
             level=i + 1,
             target_px=round(target, 1),
