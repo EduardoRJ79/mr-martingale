@@ -1,65 +1,81 @@
 """
-Grid Bot Configuration
+Grid Bot Configuration — v3.0 strategy
 All tunable parameters in one place.
 """
 import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load secrets
 load_dotenv(Path.home() / ".openclaw" / "ws-731228" / ".secrets" / "hyperliquid.env")
 
 # ─── Bot version ───────────────────────────────────────────────────────────
-BOT_VERSION      = "1.3.2"
+BOT_VERSION      = "3.0.0"
 
 # ─── Hyperliquid credentials ───────────────────────────────────────────────
 HL_PRIVATE_KEY   = os.environ["HL_PRIVATE_KEY"]
 HL_MAIN_ADDRESS  = os.environ["HL_MAIN_ADDRESS"]
-HL_TESTNET       = False   # Unused — paper mode handled by PAPER_TRADE flag below
+HL_TESTNET       = False
 
 # ─── Asset ────────────────────────────────────────────────────────────────
 COIN             = "BTC"
 CANDLE_INTERVAL  = "4h"
-POLL_SECONDS     = 300     # 5 minutes between trigger checks
-SZ_DECIMALS      = 5       # BTC size precision on Hyperliquid (szDecimals=5)
+POLL_SECONDS     = 300
+SZ_DECIMALS      = 5
 
-# ─── MA parameters ────────────────────────────────────────────────────────
-EMA_SPAN         = 34
-MA_PERIOD        = 14   # SMA14 — best Sharpe per MA optimizer (v1.1)
-LONG_TRIGGER_PCT  = 0.5    # % price must be BELOW both MAs to open long grid
-SHORT_TRIGGER_PCT = 2.5    # % price must be ABOVE both MAs to open short grid
-TRIGGER_PCT       = LONG_TRIGGER_PCT   # alias used by legacy code
+# ─── Indicator parameters ────────────────────────────────────────────────
+EMA_SPAN         = 34       # EMA34 (4H closes)
+MA_PERIOD        = 14       # SMA14 (4H closes)
+EMA20_SPAN       = 20       # EMA20 (4H closes) — new gate
+SMA440_SPAN      = 440      # SMA440 (daily closes) — regime filter
+HIGH_20D_BARS    = 120      # rolling max of 4H highs (120 bars = 20 days)
+RSI_PERIOD       = 14       # Wilder RSI on 4H closes
+
+# ─── Entry triggers ──────────────────────────────────────────────────────
+LONG_TRIGGER_PCT  = 0.5     # v28 gate: % below EMA34 AND SMA14
+EMA20_TRIGGER_PCT = 2.0     # ema20 gate: % below EMA20
+SHORT_TRIGGER_PCT = 8.0     # % above EMA34 AND SMA14 (was 2.5 in v1.3.2)
+
+# ─── Regime scaling (unfavored) ──────────────────────────────────────────
+UNFAV_RISK_SCALE    = 0.60
+UNFAV_SPACING_SCALE = 1.60
+UNFAV_TRIGGER_SCALE = 3.0
+UNFAV_HOLD_SCALE    = 0.45
+
+# ─── Filters ─────────────────────────────────────────────────────────────
+DD20D_THRESHOLD      = -0.10   # drawdown from 20-day high to block entry
+RSI_RESCUE_THRESHOLD = 30      # RSI(14) <= 30 rescues blocked entries
 
 # ─── Grid parameters ──────────────────────────────────────────────────────
 INITIAL_EQUITY_USD = 400.0
 NUM_LEVELS       = 5
-BASE_MARGIN_PCT  = 0.016   # L1 margin = 1.6% of account balance (compounds as account grows)
-BASE_MARGIN_USD  = 6.4     # reference only — actual margin is dynamic via BASE_MARGIN_PCT
-MULTIPLIER       = 2.0     # margin doubles each level
-LEVERAGE         = 20      # long-side leverage
-SHORT_LEVERAGE   = 15      # short-side leverage (tuned — less aggressive)
+LEVERAGE         = 20
+SHORT_LEVERAGE   = 15
 
-# Per-level gaps from previous level (%)
-# L1→L2: 0.5% | L2→L3: 1.5% | L3→L4: 3.0% | L4→L5: 3.0%
-LEVEL_GAPS       = [0.5, 1.5, 3.0, 3.0]
+# v3.0 position sizing (replaces BASE_MARGIN_PCT + MULTIPLIER)
+RISK_PCT         = 0.50              # L1 notional = risk_pct × balance (favored)
+RESCUE_RISK_PCT  = 0.28              # L1 notional when RSI-rescued
+LEVEL_MULTS_SEQ  = [2.0, 2.5, 2.5, 7.0]  # L2=2x, L3=5x, L4=12.5x, L5=87.5x of L1
+
+# Per-level gaps from previous level (%) — v3.0 values
+LEVEL_GAPS       = [0.5, 1.5, 10.0, 14.0]
 
 # Take profit: % from blended entry
 TP_PCT           = 0.5
 
+# ─── Timeout (4H bars) ───────────────────────────────────────────────────
+MAX_HOLD_BARS    = 720   # 720 × 4H = 120 days (favored)
+                          # × 0.45 = 324 bars = 54 days (unfavored)
+
 # ─── Paper trade mode ─────────────────────────────────────────────────────
-PAPER_TRADE      = False   # LIVE MODE — real orders on Hyperliquid mainnet.
+PAPER_TRADE      = False
 
-# ─── Risk ─────────────────────────────────────────────────────────────────
-MAX_HOLD_HOURS   = 120     # force-close if grid stuck this long (5 days)
-
-# ─── Fees (Brian's actual tier) ───────────────────────────────────────────
-TAKER_FEE        = 0.000432   # 0.0432%
-MAKER_FEE        = 0.000144   # 0.0144%
+# ─── Fees ─────────────────────────────────────────────────────────────────
+TAKER_FEE        = 0.000432
+MAKER_FEE        = 0.000144
 
 # ─── Notifications ────────────────────────────────────────────────────────
-# Discord webhook URL — set in env or hardcode for the #ideas channel
 DISCORD_WEBHOOK  = os.environ.get("DISCORD_WEBHOOK", "")
-DISCORD_CHANNEL  = "1474189306536001659"   # #ideas
+DISCORD_CHANNEL  = "1474189306536001659"
 
 # ─── State file ───────────────────────────────────────────────────────────
 STATE_FILE       = Path(__file__).parent / "grid_state.json"
