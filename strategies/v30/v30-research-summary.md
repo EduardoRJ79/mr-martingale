@@ -1,9 +1,28 @@
 # MRM v3.0 — Free-Form Entry Research Summary
 
-**Date:** 2026-03-29
+**Date:** 2026-03-30
 **Configs tested:** 519 unique combinations
 **Zero-liquidation configs found:** 180
 **Configs beating v2.9 (119.1% CAGR):** 20
+
+---
+
+## Chosen v3.0 Configuration
+
+**v28 OR ema20_t0.02, risk_pct=0.50, rescue_risk_pct=0.28** (moderate scenario)
+
+| Metric | Value |
+|--------|-------|
+| Backtest period | 2018-10-31 to 2026-03-28 (7.41 years) |
+| Resolution | 1-minute (4,521,155 bars) |
+| CAGR | **125.3%** |
+| CMR | **6.83%** |
+| Max drawdown | **79.7%** |
+| Liquidations | **0** |
+| Trades | 1,515 |
+| Final equity | $409,768 (409.8x) |
+
+See `v30-spec.md` for full specification.
 
 ---
 
